@@ -14,7 +14,6 @@ build/
 test-output/
 .apt_generated/
 .factorypath
-demo
 out/
 .dist/
 .out/
