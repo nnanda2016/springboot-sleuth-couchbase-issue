@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="info">
+	<Properties>
+		<Property name="cbLogFileName">cb</Property>
+		<Property name="cbTraceLogFileName">cb-trace</Property>
+		<Property name="appLogFileName">demo-app</Property>
+		<Property name="thirdPartyLogFileName">third-party</Property>
+		<Property name="solrLogFileName">solr</Property>
+		<Property name="splunkLogFileName">splunk</Property>
+		<Property name="reactorLogFileName">reactor</Property>
+		<Property name="springLogFileName">spring</Property>
+		<Property name="nettyLogFileName">netty</Property>
+		<Property name="springCloudSleuthLogFileName">spring-cloud-sleuth</Property>
+
+		<!-- default value for log path -->
+		<Property name="baseLogPath">build/logs</Property>
+	</Properties>
+	<Appenders>
+		<Console name="CONSOLE_APPENDER" target="SYSTEM_OUT">
+			<PatternLayout pattern="%d{HH:mm:ss.SSS} [Thread: %t] %level %c#%M - %msg%n" />
+		</Console>
+
+		<RollingRandomAccessFile 
+				name="APP_LOG_APPENDER" 
+				fileName="${sys:baseLogPath}/${appLogFileName}.log"
+				filePattern="${sys:baseLogPath}/backups/$${date:yyyy-MM}/${appLogFileName}-%d{yyyy-MM-dd}-%i.log.gz" 
+				filePermissions="rw-r-----"
+				immediateFlush="true">
+			<PatternLayout>
+				<Pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [Thread: %t] [%level] ServerTraceId: %X{traceId} SpanId: %X{spanId} SpringAppProfile: ${sys:springAppProfile:-null}  %msg%n</Pattern>
+			</PatternLayout>
+			<Policies>
+				<TimeBasedTriggeringPolicy />
+				<SizeBasedTriggeringPolicy size="100 MB" />
+			</Policies>
+			<DefaultRolloverStrategy max="20"/>
+		</RollingRandomAccessFile>
+		<RollingRandomAccessFile 
+				name="CB_LOG_APPENDER" 
+				fileName="${sys:baseLogPath}/${cbLogFileName}.log"
+				filePattern="${sys:baseLogPath}/backups/$${date:yyyy-MM}/${cbLogFileName}-%d{yyyy-MM-dd}-%i.log.gz" 
+				filePermissions="rw-r-----"
+				immediateFlush="true">
+			<PatternLayout>
+				<Pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [Thread: %t] [%level] ServerTraceId: %X{traceId} SpanId: %X{spanId} SpringAppProfile: ${sys:springAppProfile:-null} %msg%n</Pattern>
+			</PatternLayout>
+			<Policies>
+				<TimeBasedTriggeringPolicy />
+				<SizeBasedTriggeringPolicy size="100 MB" />
+			</Policies>
+			<DefaultRolloverStrategy max="20"/>
+		</RollingRandomAccessFile>
+		<RollingRandomAccessFile 
+				name="CB_TRACE_LOG_APPENDER" 
+				fileName="${sys:baseLogPath}/${cbTraceLogFileName}.log"
+				filePattern="${sys:baseLogPath}/backups/$${date:yyyy-MM}/${cbTraceLogFileName}-%d{yyyy-MM-dd}-%i.log.gz" 
+				filePermissions="rw-r-----"
+				immediateFlush="true">
+			<PatternLayout>
+				<Pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [Thread: %t] [%level] ServerTraceId: %X{traceId} SpanId: %X{spanId} SpringAppProfile: ${sys:springAppProfile:-null} %msg%n</Pattern>
+			</PatternLayout>
+			<Policies>
+				<TimeBasedTriggeringPolicy />
+				<SizeBasedTriggeringPolicy size="100 MB" />
+			</Policies>
+			<DefaultRolloverStrategy max="20"/>
+		</RollingRandomAccessFile>
+		<RollingRandomAccessFile 
+				name="SOLR_LOG_APPENDER" 
+				fileName="${sys:baseLogPath}/${solrLogFileName}.log"
+				filePattern="${sys:baseLogPath}/backups/$${date:yyyy-MM}/${solrLogFileName}-%d{yyyy-MM-dd}-%i.log.gz" 
+				filePermissions="rw-r-----"
+				immediateFlush="true">
+			<PatternLayout>
+				<Pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [Thread: %t] [%level] ServerTraceId: %X{traceId} SpanId: %X{spanId} SpringAppProfile: ${sys:springAppProfile:-null} %msg%n</Pattern>
+			</PatternLayout>
+			<Policies>
+				<TimeBasedTriggeringPolicy />
+				<SizeBasedTriggeringPolicy size="100 MB" />
+			</Policies>
+			<DefaultRolloverStrategy max="20"/>
+		</RollingRandomAccessFile>
+		<RollingRandomAccessFile 
+				name="REACTOR_LOG_APPENDER" 
+				fileName="${sys:baseLogPath}/${reactorLogFileName}.log"
+				filePattern="${sys:baseLogPath}/backups/$${date:yyyy-MM}/${reactorLogFileName}-%d{yyyy-MM-dd}-%i.log.gz" 
+				filePermissions="rw-r-----"
+				immediateFlush="true">
+			<PatternLayout>
+				<Pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [Thread: %t] [%level] ServerTraceId: %X{traceId} SpanId: %X{spanId} SpringAppProfile: ${sys:springAppProfile:-null} %msg%n</Pattern>
+			</PatternLayout>
+			<Policies>
+				<TimeBasedTriggeringPolicy />
+				<SizeBasedTriggeringPolicy size="100 MB" />
+			</Policies>
+			<DefaultRolloverStrategy max="20"/>
+		</RollingRandomAccessFile>
+		<RollingRandomAccessFile 
+				name="SPRING_LOG_APPENDER" 
+				fileName="${sys:baseLogPath}/${springLogFileName}.log"
+				filePattern="${sys:baseLogPath}/backups/$${date:yyyy-MM}/${springLogFileName}-%d{yyyy-MM-dd}-%i.log.gz" 
+				filePermissions="rw-r-----"
+				immediateFlush="true">
+			<PatternLayout>
+				<Pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [Thread: %t] [%level] ServerTraceId: %X{traceId} SpanId: %X{spanId} SpringAppProfile: ${sys:springAppProfile:-null} %msg%n</Pattern>
+			</PatternLayout>
+			<Policies>
+				<TimeBasedTriggeringPolicy />
+				<SizeBasedTriggeringPolicy size="100 MB" />
+			</Policies>
+			<DefaultRolloverStrategy max="20"/>
+		</RollingRandomAccessFile>
+		<RollingRandomAccessFile 
+				name="NETTY_LOG_APPENDER" 
+				fileName="${sys:baseLogPath}/${nettyLogFileName}.log"
+				filePattern="${sys:baseLogPath}/backups/$${date:yyyy-MM}/${nettyLogFileName}-%d{yyyy-MM-dd}-%i.log.gz" 
+				filePermissions="rw-r-----"
+				immediateFlush="true">
+			<PatternLayout>
+				<Pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [Thread: %t] [%level] ServerTraceId: %X{traceId} SpanId: %X{spanId} SpringAppProfile: ${sys:springAppProfile:-null} %msg%n</Pattern>
+			</PatternLayout>
+			<Policies>
+				<TimeBasedTriggeringPolicy />
+				<SizeBasedTriggeringPolicy size="100 MB" />
+			</Policies>
+			<DefaultRolloverStrategy max="20"/>
+		</RollingRandomAccessFile>
+		<RollingRandomAccessFile 
+				name="THIRD_PARTY_LIBRARY_APPENDER" 
+				fileName="${sys:baseLogPath}/${thirdPartyLogFileName}.log"
+				filePattern="${sys:baseLogPath}/backups/$${date:yyyy-MM}/${thirdPartyLogFileName}-%d{yyyy-MM-dd}-%i.log.gz"
+				filePermissions="rw-r-----"
+				immediateFlush="true">
+			<PatternLayout>
+				<Pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [Thread: %t] [%level] ServerTraceId: %X{traceId} SpanId: %X{spanId} SpringAppProfile: ${sys:springAppProfile:-null} %msg%n</Pattern>
+			</PatternLayout>
+			<Policies>
+				<TimeBasedTriggeringPolicy />
+				<SizeBasedTriggeringPolicy size="100 MB" />
+			</Policies>
+			<DefaultRolloverStrategy max="20"/>
+		</RollingRandomAccessFile>
+		<RollingRandomAccessFile 
+				name="SPRING_CLOUD_SLEUTH_APPENDER" 
+				fileName="${sys:baseLogPath}/${springCloudSleuthLogFileName}.log"
+				filePattern="${sys:baseLogPath}/backups/$${date:yyyy-MM}/${springCloudSleuthLogFileName}-%d{yyyy-MM-dd}-%i.log.gz"
+				filePermissions="rw-r-----"
+				immediateFlush="true">
+			<PatternLayout>
+				<Pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [Thread: %t] [%level] ServerTraceId: %X{traceId} SpanId: %X{spanId} SpringAppProfile: ${sys:springAppProfile:-null} %msg%n</Pattern>
+			</PatternLayout>
+			<Policies>
+				<TimeBasedTriggeringPolicy />
+				<SizeBasedTriggeringPolicy size="100 MB" />
+			</Policies>
+			<DefaultRolloverStrategy max="20"/>
+		</RollingRandomAccessFile>
+	</Appenders>
+
+	<Loggers>
+		<Logger name="com.demo" additivity="false" level="debug">
+			<AppenderRef ref="APP_LOG_APPENDER"/>
+		</Logger>
+		<Logger name="com.couchbase" additivity="false" level="trace">
+			<AppenderRef ref="CB_LOG_APPENDER" level="debug"/>
+			<AppenderRef ref="CB_TRACE_LOG_APPENDER" level="trace"/>
+		</Logger>
+		<Logger name="io.netty" additivity="false" level="debug" >
+			<AppenderRef ref="NETTY_LOG_APPENDER" />
+		</Logger>
+		<Logger name="reactor.ipc.netty" additivity="false" level="debug" >
+			<AppenderRef ref="NETTY_LOG_APPENDER" />
+		</Logger>
+		<Logger name="reactor" additivity="false" level="debug" >
+			<AppenderRef ref="REACTOR_LOG_APPENDER" />
+		</Logger>
+		<Logger name="org.apache.solr" additivity="false" level="debug" >
+			<AppenderRef ref="SOLR_LOG_APPENDER" />
+		</Logger>
+		<Logger name="org.apache.http" additivity="false" level="debug" >
+			<AppenderRef ref="SOLR_LOG_APPENDER" />
+		</Logger>
+		<Logger name="brave" additivity="false" level="trace" >
+			<AppenderRef ref="SPRING_CLOUD_SLEUTH_APPENDER" />
+		</Logger>
+		<Logger name="zipkin" additivity="false" level="trace" >
+			<AppenderRef ref="SPRING_CLOUD_SLEUTH_APPENDER" />
+		</Logger>
+		<Logger name="zipkin2" additivity="false" level="trace" >
+			<AppenderRef ref="SPRING_CLOUD_SLEUTH_APPENDER" />
+		</Logger>
+		<Logger name="org.springframework.cloud" additivity="false" level="trace" >
+			<AppenderRef ref="SPRING_CLOUD_SLEUTH_APPENDER" />
+		</Logger>
+		<Logger name="org.springframework" additivity="false" level="debug" >
+			<AppenderRef ref="SPRING_LOG_APPENDER" />
+		</Logger>
+		<Root additivity="false" level="debug">
+			<AppenderRef ref="THIRD_PARTY_LIBRARY_APPENDER" />
+		</Root>
+	</Loggers>
+</Configuration>

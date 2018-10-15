@@ -1,0 +1,57 @@
+spring:
+  profiles:
+    active: local
+
+---
+ 
+spring:
+  profiles: local
+  application:
+    name: Sleuth Demo App
+  
+  sleuth:
+    #opentracing:
+      #enabled: false
+    web:
+      client:
+        enabled: false
+    rxjava:
+      schedulers:
+        hook:
+          enabled: false
+        ignoredthreads: cb-io.*,cb-computations.*,RxComputationScheduler.*
+    sampler:
+      probability: 1
+  
+
+server:
+  port: 5002
+  
+# Actuator endpoint management
+management:
+  endpoints:
+    web:
+      base-path: /manage
+      exposure:
+        include: shutdown,loggers,health,info,metrics
+  endpoint:
+    shutdown:
+      enabled: true
+      
+app:
+  workerThreadPoolSize: 32
+  couchbase:
+    hosts:
+      - host1
+      - host2
+      - host3
+    connectionTimeoutInSecs: 30
+    keyValueTimeoutInSecs: 30
+    queryTimeoutInSecs: 30
+    maxRetryAttempt: 3
+    sslEnabled: false
+    bucketName: my_bucket
+    bucketUserName: my_bucket_user
+    bucketUserPassword: my_bucket_pwd
+    
+    
