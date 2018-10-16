@@ -5,7 +5,6 @@ import com.demo.util.Utils;
 import java.util.Objects;
 
 import org.apache.commons.lang3.StringUtils;
-import org.apache.logging.log4j.ThreadContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -90,7 +89,7 @@ public class HttpGatewayTracingFilter  implements WebFilter, Ordered {
 	                        final HttpHeaders responseHeaders = httpResponse.getHeaders();
 	                        
 	                        try {
-	                        	ThreadContext.put("traceId", traceIdString);
+//	                        	ThreadContext.put("traceId", traceIdString);
 	                        	
 	                        	logger.info("[TxPath={}][EndTimestamp: {}][Scope=HTTP_RES][Location={}][Content-Type={}][Content-Length={}][X-Server-Trace-Id={}]",
 	            	            		txPath,
@@ -101,7 +100,7 @@ public class HttpGatewayTracingFilter  implements WebFilter, Ordered {
 	            	            		traceIdString);
 	                        			
 	                        } finally {
-	                        	ThreadContext.remove("traceId");
+//	                        	ThreadContext.remove("traceId");
 	                        }
 	                    });
 			})

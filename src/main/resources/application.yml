@@ -42,16 +42,12 @@ app:
   workerThreadPoolSize: 32
   couchbase:
     hosts:
-      - host1
-      - host2
-      - host3
+      - localhost
     connectionTimeoutInSecs: 30
     keyValueTimeoutInSecs: 30
     queryTimeoutInSecs: 30
     maxRetryAttempt: 3
     sslEnabled: false
-    bucketName: my_bucket
-    bucketUserName: my_bucket_user
-    bucketUserPassword: my_bucket_pwd
-    
-    
+    bucketName: DEMO1
+    bucketUserName: bucket-admin
+    bucketUserPassword: demo@123
