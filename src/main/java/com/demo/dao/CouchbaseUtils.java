@@ -80,26 +80,53 @@ public class CouchbaseUtils {
 	
 //	@NewSpan(name = "CouchbaseUtils#fetchByKey")
 	public Mono<JsonDocument> fetchByKey(final Bucket bucket, final String docKey) {
-		final Span newSpan = this.tracer.nextSpan().name("CouchbaseUtils#fetchByKey");
-		try (final Tracer.SpanInScope ws = this.tracer.withSpanInScope(newSpan.start())) {
-			final String txPath = CLASS_NAME + "#fetchByKey";
-	    	
-	    	@SuppressWarnings("unchecked")
-			final Observable<JsonDocument> fetchedJsonDocObservable = bucket.async().get(docKey)
-					.retryWhen(RetryBuilder.anyOf(RequestCancelledException.class, TemporaryFailureException.class)
-							.max(this.retryTuple.getT1())
-							.delay(Delay.exponential(TimeUnit.MILLISECONDS, this.retryTuple.getT2(), 0, 1))
-							.doOnRetry((count, error, delay, timeUnit) -> logger.error("[TxPath: {}] An error occurred while fetching the document. [Document key={}][Retry iteration: {}][Time with delay: {}]...", txPath, docKey, count, delay, error))
-							.build()
-						)
-				.doOnError(t -> logger.error("[TxPath: {}] Exception while fetching document with key '{}'.", txPath, docKey))
-				.onErrorReturn(e -> null)
-			;
-			
-			return Mono.from(RxReactiveStreams.toPublisher(fetchedJsonDocObservable)).publishOn(this.appWorkerScheduler);
-		} finally {
-			newSpan.finish();
-		}
+		return Mono.subscriberContext()
+			.flatMap(context -> {
+				final String txPath = CLASS_NAME + "#fetchByKey";
+				
+				final Span span = (Span) context.getOrEmpty(Span.class).orElse(null);
+				logger.info("[Span: {}][TxPath: {}]", span, txPath);
+				
+				@SuppressWarnings("unchecked")
+				final Observable<JsonDocument> fetchedJsonDocObservable = bucket.async().get(docKey)
+						.retryWhen(RetryBuilder.anyOf(RequestCancelledException.class, TemporaryFailureException.class)
+								.max(this.retryTuple.getT1())
+								.delay(Delay.exponential(TimeUnit.MILLISECONDS, this.retryTuple.getT2(), 0, 1))
+								.doOnRetry((count, error, delay, timeUnit) -> logger.error("[Span: {}][TxPath: {}] An error occurred while fetching the document. [Document key={}][Retry iteration: {}][Time with delay: {}]...", context.getOrEmpty(Span.class).orElse(null), txPath, docKey, count, delay, error))
+								.build()
+							)
+					.doOnError(t -> logger.error("[Span: {}][TxPath: {}] Exception while fetching document with key '{}'.", context.getOrEmpty(Span.class).orElse(null), txPath, docKey))
+					.onErrorReturn(e -> null)
+				;
+				
+				return Mono.from(RxReactiveStreams.toPublisher(fetchedJsonDocObservable))
+						.publishOn(this.appWorkerScheduler)
+						.doOnError(t -> logger.info("[Span: {}][TxPath: {}#doOnError] Exception: ", context.getOrEmpty(Span.class).orElse(null), txPath, t))
+						.doOnSuccess(jsonDoc -> logger.info("[Span: {}][TxPath: {}#doOnSuccess]", context.getOrEmpty(Span.class).orElse(null), txPath));
+			})
+		;
+		
+		
+//		final Span newSpan = this.tracer.nextSpan().name("CouchbaseUtils#fetchByKey");
+//		try (final Tracer.SpanInScope ws = this.tracer.withSpanInScope(newSpan.start())) {
+//			final String txPath = CLASS_NAME + "#fetchByKey";
+//	    	
+//	    	@SuppressWarnings("unchecked")
+//			final Observable<JsonDocument> fetchedJsonDocObservable = bucket.async().get(docKey)
+//					.retryWhen(RetryBuilder.anyOf(RequestCancelledException.class, TemporaryFailureException.class)
+//							.max(this.retryTuple.getT1())
+//							.delay(Delay.exponential(TimeUnit.MILLISECONDS, this.retryTuple.getT2(), 0, 1))
+//							.doOnRetry((count, error, delay, timeUnit) -> logger.error("[TxPath: {}] An error occurred while fetching the document. [Document key={}][Retry iteration: {}][Time with delay: {}]...", txPath, docKey, count, delay, error))
+//							.build()
+//						)
+//				.doOnError(t -> logger.error("[TxPath: {}] Exception while fetching document with key '{}'.", txPath, docKey))
+//				.onErrorReturn(e -> null)
+//			;
+//			
+//			return Mono.from(RxReactiveStreams.toPublisher(fetchedJsonDocObservable)).publishOn(this.appWorkerScheduler);
+//		} finally {
+//			newSpan.finish();
+//		}
 	}
 	
 //	@NewSpan(name = "CouchbaseUtils#fetchMultiple")

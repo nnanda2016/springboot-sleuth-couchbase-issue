@@ -42,27 +42,51 @@ public class GetByIdHandler {
 	
 //	@NewSpan("GetByIdHandler#handle")
 	public Mono<ServerResponse> handle(final ServerRequest request) {
-		final Span newSpan = this.tracer.nextSpan().name("GetByIdHandler#handle");
-		try (final Tracer.SpanInScope ws = this.tracer.withSpanInScope(newSpan.start())) {
-			final ResourceDetail resourceDetail = (ResourceDetail) request.attribute("RESOURCE_DETAIL")
-	                .orElseThrow(() -> new AppException("APP_400003", "Resource ID and name cannot be determined from request path '" + request.path() + "'."));
-
-	        final String resourceName = resourceDetail.getResourceName();
-	        final String id = resourceDetail.getResourceId();
-
-	        final String txPath = CLASS_NAME + "#handle";
-			
-	        return resourceService.get(resourceDetail)
-	        		// These logging are just for correlation purpose 
-					.doOnSuccess(jsonNode -> logger.info("[TxPath: {}] Successfully fetched resource with id '{}' and name '{}'.", txPath, id, resourceName))
-					.doOnError(t -> logger.info("[TxPath: {}] Failed to fetch resource with id '{}' and name '{}'...", txPath, id, resourceName, t))
-	        		.flatMap(jsonNode -> ServerResponse.ok()
-	        			.contentType(MediaType.APPLICATION_JSON_UTF8)
-	        			.syncBody(jsonNode))
-	        ;
-		} finally {
-			newSpan.finish();
-		}
+		return Mono.subscriberContext()
+			.flatMap(context -> {
+				final String txPath = CLASS_NAME + "#handle";
+				
+				final Span span = (Span) context.getOrEmpty(Span.class).orElse(null);
+				logger.info("[Span: {}][TxPath: {}]", span, txPath);
+				
+				final ResourceDetail resourceDetail = (ResourceDetail) request.attribute("RESOURCE_DETAIL")
+		                .orElseThrow(() -> new AppException("APP_400003", "Resource ID and name cannot be determined from request path '" + request.path() + "'."));
+				
+				final String resourceName = resourceDetail.getResourceName();
+		        final String id = resourceDetail.getResourceId();
+				
+		        return resourceService.get(resourceDetail)
+		        		// These logging are just for correlation purpose 
+						.doOnSuccess(jsonNode -> logger.info("[Span: {}][TxPath: {}#doOnSuccess] Successfully fetched resource with id '{}' and name '{}'.", context.getOrEmpty(Span.class).orElse(null), txPath, id, resourceName))
+						.doOnError(t -> logger.info("[Span: {}][TxPath: {}#doOnError] Failed to fetch resource with id '{}' and name '{}'...", context.getOrEmpty(Span.class).orElse(null), txPath, id, resourceName, t))
+		        		.flatMap(jsonNode -> ServerResponse.ok()
+		        			.contentType(MediaType.APPLICATION_JSON_UTF8)
+		        			.syncBody(jsonNode));
+			})
+		;
+		
+		
+//		final Span newSpan = this.tracer.nextSpan().name("GetByIdHandler#handle");
+//		try (final Tracer.SpanInScope ws = this.tracer.withSpanInScope(newSpan.start())) {
+//			final ResourceDetail resourceDetail = (ResourceDetail) request.attribute("RESOURCE_DETAIL")
+//	                .orElseThrow(() -> new AppException("APP_400003", "Resource ID and name cannot be determined from request path '" + request.path() + "'."));
+//
+//	        final String resourceName = resourceDetail.getResourceName();
+//	        final String id = resourceDetail.getResourceId();
+//
+//	        final String txPath = CLASS_NAME + "#handle";
+//			
+//	        return resourceService.get(resourceDetail)
+//	        		// These logging are just for correlation purpose 
+//					.doOnSuccess(jsonNode -> logger.info("[TxPath: {}] Successfully fetched resource with id '{}' and name '{}'.", txPath, id, resourceName))
+//					.doOnError(t -> logger.info("[TxPath: {}] Failed to fetch resource with id '{}' and name '{}'...", txPath, id, resourceName, t))
+//	        		.flatMap(jsonNode -> ServerResponse.ok()
+//	        			.contentType(MediaType.APPLICATION_JSON_UTF8)
+//	        			.syncBody(jsonNode))
+//	        ;
+//		} finally {
+//			newSpan.finish();
+//		}
 		
 //        final ResourceDetail resourceDetail = (ResourceDetail) request.attribute("RESOURCE_DETAIL")
 //                .orElseThrow(() -> new AppException("APP_400003", "Resource ID and name cannot be determined from request path '" + request.path() + "'."));

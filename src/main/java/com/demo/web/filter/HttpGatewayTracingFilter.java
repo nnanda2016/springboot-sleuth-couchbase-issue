@@ -18,6 +18,7 @@ import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebFilter;
 import org.springframework.web.server.WebFilterChain;
 
+import brave.Span;
 import brave.Tracer;
 import reactor.core.publisher.Mono;
 
@@ -71,7 +72,8 @@ public class HttpGatewayTracingFilter  implements WebFilter, Ordered {
 	            final String txPath = CLASS_NAME + "#filter";
 	            final long txStartTime = System.currentTimeMillis();
 	            
-	            logger.info("[TxPath={}][StartTimestamp: {}][Scope=HTTP_REQ][URL={}][HttpMethod={}][User-Agent={}][Accept={}][Content-Type={}][From={}][X-Client-Trace-Id={}][X-Server-Trace-Id={}]",
+	            logger.info("[Span: {}][TxPath={}][StartTimestamp: {}][Scope=HTTP_REQ][URL={}][HttpMethod={}][User-Agent={}][Accept={}][Content-Type={}][From={}][X-Client-Trace-Id={}][X-Server-Trace-Id={}]",
+	            		context.getOrEmpty(Span.class).orElse(null),
 	            		txPath,
 	            		Objects.toString(txStartTime),
 	            		Objects.toString(httpRequest.getURI()),
@@ -91,8 +93,9 @@ public class HttpGatewayTracingFilter  implements WebFilter, Ordered {
 	                        try {
 //	                        	ThreadContext.put("traceId", traceIdString);
 	                        	
-	                        	logger.info("[TxPath={}][EndTimestamp: {}][Scope=HTTP_RES][Location={}][Content-Type={}][Content-Length={}][X-Server-Trace-Id={}]",
-	            	            		txPath,
+	                        	logger.info("[Span: {}][TxPath={}][EndTimestamp: {}][Scope=HTTP_RES][Location={}][Content-Type={}][Content-Length={}][X-Server-Trace-Id={}]",
+	                        			context.getOrEmpty(Span.class).orElse(null),
+	                        			txPath,
 	            	            		Objects.toString(System.currentTimeMillis()),
 	            	            		Utils.GET_FIRST_HEADER_VALUE_FROM_HTTP_HEADERS.apply(responseHeaders, HttpHeaders.LOCATION).orElse("<NA>"),
 	            	            		Utils.GET_FIRST_HEADER_VALUE_FROM_HTTP_HEADERS.apply(responseHeaders, HttpHeaders.CONTENT_TYPE).orElse("<NA>"),

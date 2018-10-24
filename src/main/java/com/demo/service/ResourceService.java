@@ -44,14 +44,17 @@ public class ResourceService {
 	
 //	@NewSpan(name = "ResourceService#get")
 	public Mono<JsonNode> get(final ResourceDetail resourceDetail) {
-		return Mono.defer(() -> {
-			final Span newSpan = this.tracer.nextSpan().name("ResourceService#get");
-			try (final Tracer.SpanInScope ws = this.tracer.withSpanInScope(newSpan.start())) {
+		return Mono.subscriberContext()
+			.flatMap(context -> {
 				final String txPath = CLASS_NAME + "#get";
-	            
-	            return resourceDAO.fetch(resourceDetail)
+				
+				final Span span = (Span) context.getOrEmpty(Span.class).orElse(null);
+				logger.info("[TxPath: {}][Span: {}]", txPath, span);
+				
+				return resourceDAO.fetch(resourceDetail)
+						// README: Change Mono.defer() and verify
 	            		.switchIfEmpty(Mono.defer(() -> {
-	            				logger.error("[TxPath: {}] No data was fetched from persistence store for the given id '{}' and resource name '{}'.", txPath, resourceDetail.getResourceId(), resourceDetail.getResourceName());
+	            				logger.error("[Span: {}][TxPath: {}#switchIfEmpty] No data was fetched from persistence store for the given id '{}' and resource name '{}'.", context.getOrEmpty(Span.class).orElse(null), txPath, resourceDetail.getResourceId(), resourceDetail.getResourceName());
 
 	                            return Mono.error(new AppException("APP_404002", "No data was fetched from persistence store for the given id '" + resourceDetail.getResourceId() + " and resource name '" + resourceDetail.getResourceName() + "'."));
 	            			})
@@ -61,12 +64,35 @@ public class ResourceService {
 	    	            	serviceHelper.updateMetaNodeForResponse(jsonNode);
 	    	            	
 	    	            	// This logging is just for correlation
-	    	            	logger.info("[TxPath: {}]Successfully fetched resource from persistence store for the given id '{}' and resource name '{}'.", txPath, resourceDetail.getResourceId(), resourceDetail.getResourceName());
-	    	            });
-			} finally {
-				newSpan.finish();
-			}
-		});
+	    	            	logger.info("[Span: {}][TxPath: {}#doOnSuccess] Successfully fetched resource from persistence store for the given id '{}' and resource name '{}'.", context.getOrEmpty(Span.class).orElse(null), txPath, resourceDetail.getResourceId(), resourceDetail.getResourceName());
+	    	            })
+	            		.doOnError(t -> logger.error("[Span: {}][TxPath: {}#doOnError] Failed to fetch resource from persistence store for the given id '{}' and resource name '{}'.", context.getOrEmpty(Span.class).orElse(null), txPath, resourceDetail.getResourceId(), resourceDetail.getResourceName()));
+			})
+		;
+		
+//		return Mono.defer(() -> {
+//			final Span newSpan = this.tracer.nextSpan().name("ResourceService#get");
+//			try (final Tracer.SpanInScope ws = this.tracer.withSpanInScope(newSpan.start())) {
+//				final String txPath = CLASS_NAME + "#get";
+//	            
+//	            return resourceDAO.fetch(resourceDetail)
+//	            		.switchIfEmpty(Mono.defer(() -> {
+//	            				logger.error("[TxPath: {}] No data was fetched from persistence store for the given id '{}' and resource name '{}'.", txPath, resourceDetail.getResourceId(), resourceDetail.getResourceName());
+//
+//	                            return Mono.error(new AppException("APP_404002", "No data was fetched from persistence store for the given id '" + resourceDetail.getResourceId() + " and resource name '" + resourceDetail.getResourceName() + "'."));
+//	            			})
+//	            		)
+//	            		.doOnSuccess(jsonNode -> {
+//	    	            	// Remove all fields except 'revision' from _meta node.
+//	    	            	serviceHelper.updateMetaNodeForResponse(jsonNode);
+//	    	            	
+//	    	            	// This logging is just for correlation
+//	    	            	logger.info("[TxPath: {}]Successfully fetched resource from persistence store for the given id '{}' and resource name '{}'.", txPath, resourceDetail.getResourceId(), resourceDetail.getResourceName());
+//	    	            });
+//			} finally {
+//				newSpan.finish();
+//			}
+//		});
 	}
 	
 //	@NewSpan(name = "ResourceService#delete")
