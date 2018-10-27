@@ -11,22 +11,13 @@ import com.demo.util.ZonedDateTimeJsonSerializer;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import java.time.ZonedDateTime;
-import java.util.Objects;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.commons.collections4.CollectionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Scope;
@@ -37,18 +28,9 @@ import org.springframework.context.annotation.Scope;
  * @author Niranjan Nanda
  */
 @Configuration
-@EnableConfigurationProperties(value = {CouchbaseConfigProps.class})
 public class ApplicationConfig {
 	
 	private static final Logger logger = LoggerFactory.getLogger(ApplicationConfig.class);
-	
-	@Autowired
-	private CouchbaseConfigProps couchbaseConfigs;
-	
-//	@Bean
-//	CurrentTraceContext sleuthCurrentTraceContext() {
-//		return DemoThreadContextCurrentTraceContext.create();
-//	}
 	
 	@Bean(name = BeanNames.JACKSON_OBJECT_MAPPER)
     @Scope(ConfigurableBeanFactory.SCOPE_SINGLETON)
@@ -67,32 +49,18 @@ public class ApplicationConfig {
 	@Bean(name = BeanNames.COUCHBASE_DATA_BUCKET)
 	@Scope(ConfigurableBeanFactory.SCOPE_SINGLETON)
 	public Bucket dataCouchbaseBucketBean() {
-	    
-
-        final Bucket dataBucket = this.getCouchbaseBucket(
-        		couchbaseConfigs.getBucketUserName(),
-        		couchbaseConfigs.getBucketUserPassword(),
-        		couchbaseConfigs.getBucketName());
+		final String bucketName = "sample";
+		final String bucketUsername = "Administrator";
+		final String bucketPassword = "password";
+		
+        final Bucket dataBucket = this.getCouchbaseBucket(bucketUsername, bucketPassword, bucketName);
 
         logger.info("Data bucket opened successfully.");
 
 		return dataBucket;
 	}
 	
-	@Bean(name = BeanNames.APP_WORKER_THREADPOOL_EXECUTOR, destroyMethod = "shutdown")
-    @Scope(ConfigurableBeanFactory.SCOPE_SINGLETON)
-    public ExecutorService appWorkerExecutorService(@Value("${app.workerThreadPoolSize}") final int appWorkerThreadpoolSize) {
-    	final ThreadFactory threadFactory = new ThreadFactoryBuilder().setNameFormat("app-worker-%d").build();
-    	
-    	if (appWorkerThreadpoolSize <= 0) {
-    		return Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors(), threadFactory);
-    	}
-    	
-    	return Executors.newFixedThreadPool(appWorkerThreadpoolSize, threadFactory);
-    }
-	
-	private Bucket getCouchbaseBucket(final String bucketUserName, final String bucketUserPassword,
-			final String bucketName) {
+	private Bucket getCouchbaseBucket(final String bucketUserName, final String bucketUserPassword, final String bucketName) {
 		final Cluster cluster = this.getCouchbaseCluster(bucketUserName, bucketUserPassword);
 		try {
 			return cluster.openBucket(bucketName);
@@ -105,15 +73,11 @@ public class ApplicationConfig {
 	}
 
 	private Cluster getCouchbaseCluster(final String authUserName, final String authPassword) {
-		if (CollectionUtils.isEmpty(couchbaseConfigs.getHosts())) {
-			throw new IllegalStateException("Couchbase host values is null or empty in configuration.");
-		}
-
 		final DefaultCouchbaseEnvironment couchbaseEnv = this.buildCouchbaseEnvironment();
 
 		// Create an instance of cluster and authenticate with the cluster.
 		final Cluster cbCluster = CouchbaseCluster
-		        .create(couchbaseEnv, couchbaseConfigs.getHosts())
+		        .create(couchbaseEnv, "localhost")
 				.authenticate(authUserName, authPassword);
 
 		logger.info("Authentication with Couchbase cluster was successful.");
@@ -121,20 +85,10 @@ public class ApplicationConfig {
 	}
 
 	private DefaultCouchbaseEnvironment buildCouchbaseEnvironment() {
-		final long connectionTimeoutInSecs = Objects.nonNull(couchbaseConfigs.getConnectionTimeoutInSecs())
-				? couchbaseConfigs.getConnectionTimeoutInSecs()
-				: 30L;
-		final long keyValueTimeoutInSecs = Objects.nonNull(couchbaseConfigs.getKeyValueTimeoutInSecs())
-				? couchbaseConfigs.getKeyValueTimeoutInSecs()
-				: 30L;
-		final long queryTimeoutInSecs = Objects.nonNull(couchbaseConfigs.getQueryTimeoutInSecs())
-				? couchbaseConfigs.getQueryTimeoutInSecs()
-				: 30L;
-
 		final DefaultCouchbaseEnvironment.Builder envBuilder = DefaultCouchbaseEnvironment.builder()
-				.connectTimeout(TimeUnit.SECONDS.toMillis(connectionTimeoutInSecs))
-				.kvTimeout(TimeUnit.SECONDS.toMillis(keyValueTimeoutInSecs))
-				.queryTimeout(TimeUnit.SECONDS.toMillis(queryTimeoutInSecs))
+				.connectTimeout(TimeUnit.SECONDS.toMillis(30))
+				.kvTimeout(TimeUnit.SECONDS.toMillis(30))
+				.queryTimeout(TimeUnit.SECONDS.toMillis(30))
 				.keepAliveErrorThreshold(1)
 				.continuousKeepAliveEnabled(true)
 				.keepAliveInterval(10000)
@@ -143,6 +97,4 @@ public class ApplicationConfig {
 
 		return envBuilder.build();
 	}
-	
-	
 }

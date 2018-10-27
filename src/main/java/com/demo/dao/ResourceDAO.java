@@ -1,14 +1,23 @@
 package com.demo.dao;
 
+import com.couchbase.client.core.RequestCancelledException;
+import com.couchbase.client.core.time.Delay;
 import com.couchbase.client.java.Bucket;
 import com.couchbase.client.java.document.JsonDocument;
-import com.couchbase.client.java.error.CASMismatchException;
-import com.couchbase.client.java.error.DocumentDoesNotExistException;
-import com.demo.exception.AppException;
+import com.couchbase.client.java.document.json.JsonObject;
+import com.couchbase.client.java.error.TemporaryFailureException;
+import com.couchbase.client.java.util.retry.RetryBuilder;
 import com.demo.model.ResourceDetail;
 import com.demo.util.BeanNames;
 import com.demo.util.Utils;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
+
+import java.util.Objects;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,8 +28,10 @@ import org.springframework.stereotype.Component;
 import brave.Span;
 import brave.Tracer;
 import reactor.core.publisher.Mono;
-import reactor.util.function.Tuple2;
-import reactor.util.function.Tuples;
+import reactor.core.scheduler.Scheduler;
+import reactor.core.scheduler.Schedulers;
+import rx.Observable;
+import rx.RxReactiveStreams;
 
 /**
  * TODO: Add a description
@@ -34,20 +45,24 @@ public class ResourceDAO {
 	public static final String CLASS_NAME = ResourceDAO.class.getCanonicalName();
 	
 	private final Bucket dataBucket;
-	private final CouchbaseUtils couchbaseUtils;
+	private final Scheduler appWorkerScheduler;
+	private final ObjectMapper jacksonObjectMapper;
 	private final Tracer tracer;
 	
 	@Autowired
 	public ResourceDAO(
 			@Qualifier(BeanNames.COUCHBASE_DATA_BUCKET) final Bucket dataBucket,
-			@Qualifier(BeanNames.COUCHBASE_UTILS) final CouchbaseUtils couchbaseUtils,
+			@Qualifier(BeanNames.JACKSON_OBJECT_MAPPER) final ObjectMapper objectMapper,
 			final Tracer tracer) {
 		this.dataBucket = dataBucket;
-		this.couchbaseUtils = couchbaseUtils;
+		this.jacksonObjectMapper = objectMapper;
+		
+		final ThreadFactory threadFactory = new ThreadFactoryBuilder().setNameFormat("app-worker-%d").build();
+		this.appWorkerScheduler = Schedulers.fromExecutorService(Executors.newFixedThreadPool(10, threadFactory));
+		
 		this.tracer = tracer;
 	}
 	
-//	@NewSpan(name = "ResourceDAO#fetch")
 	public Mono<JsonNode> fetch(final ResourceDetail resourceDetail) {
 		return Mono.subscriberContext()
 			.flatMap(context -> {
@@ -58,8 +73,8 @@ public class ResourceDAO {
 				final Span newSpan = this.tracer.nextSpan().name("ResourceDAO#fetch");
 				try (final Tracer.SpanInScope ws = this.tracer.withSpanInScope(newSpan.start())) {
 					final String documentKey = Utils.FN_DOCUMENT_KEY_SUPPLIER.apply(resourceDetail.getResourceName(), resourceDetail.getResourceId());
-					return couchbaseUtils.fetchByKey(dataBucket, documentKey)
-							.map(this.couchbaseUtils::jsonDocToJsonNode)
+					return this.fetchByKey(dataBucket, documentKey)
+							.map(this::jsonDocToJsonNode)
 							// These logging are just for correlation purpose 
 							.doOnSuccess(jsonNode ->  {
 								if (jsonNode == null) {
@@ -75,83 +90,71 @@ public class ResourceDAO {
 				}
 			})
 		;
-		
-		
-//		return Mono.defer(() -> {
-//			final Span newSpan = this.tracer.nextSpan().name("ResourceDAO#fetch");
-//			try (final Tracer.SpanInScope ws = this.tracer.withSpanInScope(newSpan.start())) {
-//				final String documentKey = Utils.FN_DOCUMENT_KEY_SUPPLIER.apply(resourceDetail.getResourceName(), resourceDetail.getResourceId());
-//				final String txPath = CLASS_NAME + "#fetch";
-//				return couchbaseUtils.fetchByKey(dataBucket, documentKey)
-//					.map(this.couchbaseUtils::jsonDocToJsonNode)
-//					// These logging are just for correlation purpose 
-//					.doOnSuccess(jsonNode ->  {
-//						if (jsonNode == null) {
-//							logger.error("[TxPath: {}] Failed to fetch document for resource '{}'.", txPath, resourceDetail);
-//						} else {
-//							logger.info("[TxPath: {}] Successfully fetched document for resource '{}'", txPath, resourceDetail);
-//						}
-//					})
-//					.doOnError(t -> logger.error("[TxPath: {}] Failed to fetch document for resource '{}'...", txPath, resourceDetail, t))
-//					;
-//			} finally {
-//				newSpan.finish();
-//			}
-//		});
 	}
 	
-//	@NewSpan(name = "ResourceDAO#delete")
-	public Mono<Void> delete(final ResourceDetail resourceDetail) {
-		return Mono.defer(() -> {
-			final Span newSpan = this.tracer.nextSpan().name("ResourceDAO#delete");
-			try (final Tracer.SpanInScope ws = this.tracer.withSpanInScope(newSpan.start())) {
-				final String documentKey = Utils.FN_DOCUMENT_KEY_SUPPLIER.apply(resourceDetail.getResourceName(), resourceDetail.getResourceId());
-				final String txPath = CLASS_NAME + "#delete";
+	private Mono<JsonDocument> fetchByKey(final Bucket bucket, final String docKey) {
+		return Mono.subscriberContext()
+			.flatMap(context -> {
+				final String txPath = CLASS_NAME + "#fetchByKey";
 				
-				return this.couchbaseUtils.asyncDelete(dataBucket, documentKey)
-					// These logging are just for correlation purpose 
-					.doOnSuccess(jsonNode -> logger.info("[TxPath: {}] Successfully deleted document with resource id '{}'.", txPath, resourceDetail.getResourceId()))
-					.doOnError(t -> logger.error("[TxPath: {}] Failed to delete document with id '{}'...", txPath, resourceDetail.getResourceId(), t))
-					.onErrorMap(t -> {
-						if (t instanceof DocumentDoesNotExistException) {
-							return new AppException("APP_404003", "Delete failed because no data was fetched from persistence store for the given id " + resourceDetail.getResourceId() + " and resource name '" + resourceDetail.getResourceId() + "'.");
-						} else {
-							return new AppException("APP_500006", "An error occurred while deleting the resource with id " + resourceDetail.getResourceId() + " and resource name '" + resourceDetail.getResourceId() + "'.");
-						}
-					})
-					.flatMap(jsonDoc -> Mono.empty())
+				logger.info("[Span: {}][TxPath: {}][Tracer.span: {}]", context.getOrEmpty(Span.class).orElse(null), txPath, tracer.currentSpan());
+				
+				@SuppressWarnings("unchecked")
+				final Observable<JsonDocument> fetchedJsonDocObservable = bucket.async().get(docKey)
+						.retryWhen(RetryBuilder.anyOf(RequestCancelledException.class, TemporaryFailureException.class)
+								.max(3)
+								.delay(Delay.exponential(TimeUnit.MILLISECONDS, 30000, 0, 1))
+								.doOnRetry((count, error, delay, timeUnit) -> logger.error("[Span: {}][TxPath: {}][Tracer.span: {}] An error occurred while fetching the document. [Document key={}][Retry iteration: {}][Time with delay: {}]...", context.getOrEmpty(Span.class).orElse(null), txPath, tracer.currentSpan(), docKey, count, delay, error))
+								.build()
+							)
+					.doOnError(t -> logger.error("[Span: {}][TxPath: {}][Tracer.span: {}] Exception while fetching document with key '{}'.", context.getOrEmpty(Span.class).orElse(null), txPath, tracer.currentSpan(), docKey))
+					.onErrorReturn(e -> null)
 				;
-			} finally {
-				newSpan.finish();
-			}
-		});
+				
+				final Span newSpan = this.tracer.nextSpan().name("CouchbaseUtils#fetchByKey");
+				try (final Tracer.SpanInScope ws = this.tracer.withSpanInScope(newSpan.start())) {
+					return Mono.from(RxReactiveStreams.toPublisher(fetchedJsonDocObservable))
+							.publishOn(this.appWorkerScheduler)
+							.doOnError(t -> logger.info("[Span: {}][TxPath: {}#doOnError][Tracer.span: {}] Exception: ", context.getOrEmpty(Span.class).orElse(null), txPath, tracer.currentSpan(), t))
+							.doOnSuccess(jsonDoc -> logger.info("[Span: {}][TxPath: {}#doOnSuccess][Tracer.span: {}]", context.getOrEmpty(Span.class).orElse(null), txPath, tracer.currentSpan()));
+				} finally {
+					newSpan.finish();
+				}
+			})
+		;
 	}
 	
-//	@NewSpan(name = "ResourceDAO#createOrReplace")
-	public Mono<Tuple2<Boolean, JsonNode>> createOrReplace(final ResourceDetail resourceDetail, final JsonNode jsonNode) {
-		return Mono.defer(() -> {
-			final Span newSpan = this.tracer.nextSpan().name("ResourceDAO#createOrReplace");
-			try (final Tracer.SpanInScope ws = this.tracer.withSpanInScope(newSpan.start())) {
-				final String docKey = Utils.FN_DOCUMENT_KEY_SUPPLIER.apply(resourceDetail.getResourceName(), resourceDetail.getResourceId());
-				final JsonDocument jsonDoc;
-				try {
-					jsonDoc = couchbaseUtils.jsonNodeToJsonDocument(jsonNode, docKey, (Long) null, 0);
-				} catch (final Exception e) {
-					return Mono.error(new AppException("APP_500005", "An error occurred while deserializing the request for key '" + resourceDetail.getResourceId() + "'."));
-				}
-				
-				try {
-					final Tuple2<Boolean, JsonDocument> createdDocumentTuple = couchbaseUtils.createOrReplace(dataBucket, jsonDoc);
-					final JsonNode createdJsonNode = couchbaseUtils.jsonDocToJsonNode(createdDocumentTuple.getT2());
-					return Mono.justOrEmpty(Tuples.of(createdDocumentTuple.getT1(), createdJsonNode));
-				} catch (final CASMismatchException e) {
-					return Mono.error(new AppException("APP_409001", "An exception occurred while saving the resource because there was a version mismatch between the one provided, and the one stored in the database."));
-				} catch (final Exception e) {
-					return Mono.error(new AppException("APP_500004", "An error occurred while saving the resource with key '" + resourceDetail.getResourceId() + "'."));
-				}
-			} finally {
-				newSpan.finish();
-			}
-		});
+	private JsonNode jsonDocToJsonNode(final JsonDocument jsonDoc) {
+		if(jsonDoc == null || jsonDoc.content() == null) {
+			return null;
+		}
+		
+		final String txPath = CLASS_NAME + "#jsonDocToJsonNode";
+        
+        final JsonObject content = jsonDoc.content();
+//        JsonObject meta = content.getObject("_meta");
+//
+//        if (meta == null) {
+//            meta = JsonObject.create();
+//            content.put("_meta", meta);
+//        }
+//        
+//        // Set the cas to the revision in 'meta'
+//        meta.put("revision", Objects.toString(jsonDoc.cas()));
+        
+        final String stringContent = Objects.toString(content);
+        
+        try {
+            final JsonNode jsonNode = jacksonObjectMapper.readTree(stringContent);
+
+            logger.debug("[TxPath: {}] Successfully converted Couchbase JsonDocument to JsonNode", txPath);
+
+            return jsonNode;
+        } catch (final Exception e) {
+            logger.debug("Exception when reading Couchbase JsonDocument: '{}' as JsonNode", jsonDoc);
+            logger.error("Exception when reading Couchbase JsonDocument as JsonNode, document key: '{}'", jsonDoc.id(), e);
+
+            throw new RuntimeException(e);
+        }
 	}
 }
