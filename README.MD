@@ -4,7 +4,7 @@ This application demonstrates the issue with Spring Cloud Sleuth. Summary of iss
 3. Whenever there's an exception, Sleuth creates a new span. This breaks the continuity of trace and span. ZipKin UI shows these separate spans.
 
 
-##### H4 Install Couchbase Locally
+#### Install Couchbase Locally
 To run this app, we need Couchbase which is supplied as part of this application. Following commands will help running fully configured CB which can be used for this app. 
 
 ```
@@ -13,14 +13,14 @@ docker-compose up -d
 ```
 You can verify the CB installation by opening URL http://localhost:8091 
 
-##### H4 Run the App
+#### Run the App
 I have tested this app in JDK 8. To run the app, use following command. The log files are generated under `./build/logs` folder.
 
 ```
 ./gradlew clean build bootRun
 ```
 
-##### H4 Testing
+#### Testing
 I have tested this app in JDK 8. Use following commands from the base of this project.
 
 
