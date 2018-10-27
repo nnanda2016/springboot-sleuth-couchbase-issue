@@ -1,9 +1,7 @@
 package com.demo.web.route;
 
 import com.demo.web.filter.ResourceParsingFilter;
-import com.demo.web.handler.DeleteByIdHandler;
 import com.demo.web.handler.GetByIdHandler;
-import com.demo.web.handler.PutWithIdHandler;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -32,11 +30,11 @@ public class RouterConfigs {
 	@Autowired
 	private GetByIdHandler getByIdHandler;
 
-	@Autowired
-	private DeleteByIdHandler deleteByIdHandler;
-
-	@Autowired
-	private PutWithIdHandler putWithIdHandler;
+//	@Autowired
+//	private DeleteByIdHandler deleteByIdHandler;
+//
+//	@Autowired
+//	private PutWithIdHandler putWithIdHandler;
 	
 	@Bean
 	public RouterFunction<ServerResponse> routes() {
@@ -57,8 +55,8 @@ public class RouterConfigs {
 	private RouterFunction<ServerResponse> nestedRoutes() {
 		return RouterFunctions
 				.route(RequestPredicates.GET(GENERIC_GET_BY_ID), getByIdHandler::handle) // Handler to route GET by id requests
-				.andRoute(RequestPredicates.PUT(GENERIC_PUT_WITH_ID), putWithIdHandler::handle) // Handler to route PUT with id requests
-				.andRoute(RequestPredicates.DELETE(GENERIC_DELETE_BY_ID), deleteByIdHandler::handle) // Handler to route DELETE by id requests
+//				.andRoute(RequestPredicates.PUT(GENERIC_PUT_WITH_ID), putWithIdHandler::handle) // Handler to route PUT with id requests
+//				.andRoute(RequestPredicates.DELETE(GENERIC_DELETE_BY_ID), deleteByIdHandler::handle) // Handler to route DELETE by id requests
 				.filter(resourceParsingFilter)
 				;
 	}

@@ -72,18 +72,5 @@ public class GlobalExceptionHandler extends AbstractErrorWebExceptionHandler {
 						.syncBody(errorPropertiesMap);
 			})
 		;
-//		
-//		return Mono.defer(() -> {
-//			final Map<String, Object> errorPropertiesMap = getErrorAttributes(request, false);
-//			
-//			final HttpStatus httpStatus = (HttpStatus) errorPropertiesMap.get(HttpStatus.class.getCanonicalName());
-//			
-//			// Remove the HttpStatus from the map so that it does not get rendered in the response 
-//			errorPropertiesMap.remove(HttpStatus.class.getCanonicalName());
-//			
-//			return ServerResponse.status(httpStatus)
-//					.contentType(MediaType.APPLICATION_JSON_UTF8)
-//					.syncBody(errorPropertiesMap);
-//		});
 	}
 }
