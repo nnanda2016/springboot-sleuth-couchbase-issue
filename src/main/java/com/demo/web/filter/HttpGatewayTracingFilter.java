@@ -72,9 +72,12 @@ public class HttpGatewayTracingFilter  implements WebFilter, Ordered {
 	            final String txPath = CLASS_NAME + "#filter";
 	            final long txStartTime = System.currentTimeMillis();
 	            
-	            logger.info("[Span: {}][TxPath={}][StartTimestamp: {}][Scope=HTTP_REQ][URL={}][HttpMethod={}][User-Agent={}][Accept={}][Content-Type={}][From={}][X-Client-Trace-Id={}][X-Server-Trace-Id={}]",
+	            final Span spanFromReactorContext = (Span) context.getOrEmpty(Span.class).orElse(null);
+	            
+	            logger.info("[Span: {}][TxPath={}][Tracer.span: {}][StartTimestamp: {}][Scope=HTTP_REQ][URL={}][HttpMethod={}][User-Agent={}][Accept={}][Content-Type={}][From={}][X-Client-Trace-Id={}][X-Server-Trace-Id={}]",
 	            		context.getOrEmpty(Span.class).orElse(null),
 	            		txPath,
+	            		tracer.currentSpan(),
 	            		Objects.toString(txStartTime),
 	            		Objects.toString(httpRequest.getURI()),
 	            		httpRequest.getMethodValue(),
@@ -87,24 +90,31 @@ public class HttpGatewayTracingFilter  implements WebFilter, Ordered {
 	            
 	            return chain.filter(exchange)
 	            		.doOnSuccessOrError((s, e) -> {
-	                        final ServerHttpResponse httpResponse = exchange.getResponse();
-	                        final HttpHeaders responseHeaders = httpResponse.getHeaders();
+	            			final Span newSpan = tracer.newChild(spanFromReactorContext.context()).name("HttpGatewayTracingFilter#filter#response");
+	            			try (final Tracer.SpanInScope ws = this.tracer.withSpanInScope(newSpan.start())) {
+	            				final ServerHttpResponse httpResponse = exchange.getResponse();
+		                        final HttpHeaders responseHeaders = httpResponse.getHeaders();
+		                        try {
+//		                        	ThreadContext.put("traceId", traceIdString);
+		                        	
+		                        	logger.info("[Span: {}][TxPath={}][Tracer.span: {}][NewSpan: {}][EndTimestamp: {}][Scope=HTTP_RES][Location={}][Content-Type={}][Content-Length={}][X-Server-Trace-Id={}]",
+		                        			context.getOrEmpty(Span.class).orElse(null),
+		                        			txPath,
+		                        			tracer.currentSpan(),
+		                        			newSpan,
+		            	            		Objects.toString(System.currentTimeMillis()),
+		            	            		Utils.GET_FIRST_HEADER_VALUE_FROM_HTTP_HEADERS.apply(responseHeaders, HttpHeaders.LOCATION).orElse("<NA>"),
+		            	            		Utils.GET_FIRST_HEADER_VALUE_FROM_HTTP_HEADERS.apply(responseHeaders, HttpHeaders.CONTENT_TYPE).orElse("<NA>"),
+		            	            		Utils.GET_FIRST_HEADER_VALUE_FROM_HTTP_HEADERS.apply(responseHeaders, HttpHeaders.CONTENT_LENGTH).orElse("<NA>"),
+		            	            		traceIdString);
+		                        			
+		                        } finally {
+//		                        	ThreadContext.remove("traceId");
+		                        }
+	            			} finally {
+	            				newSpan.finish();
+	            			}
 	                        
-	                        try {
-//	                        	ThreadContext.put("traceId", traceIdString);
-	                        	
-	                        	logger.info("[Span: {}][TxPath={}][EndTimestamp: {}][Scope=HTTP_RES][Location={}][Content-Type={}][Content-Length={}][X-Server-Trace-Id={}]",
-	                        			context.getOrEmpty(Span.class).orElse(null),
-	                        			txPath,
-	            	            		Objects.toString(System.currentTimeMillis()),
-	            	            		Utils.GET_FIRST_HEADER_VALUE_FROM_HTTP_HEADERS.apply(responseHeaders, HttpHeaders.LOCATION).orElse("<NA>"),
-	            	            		Utils.GET_FIRST_HEADER_VALUE_FROM_HTTP_HEADERS.apply(responseHeaders, HttpHeaders.CONTENT_TYPE).orElse("<NA>"),
-	            	            		Utils.GET_FIRST_HEADER_VALUE_FROM_HTTP_HEADERS.apply(responseHeaders, HttpHeaders.CONTENT_LENGTH).orElse("<NA>"),
-	            	            		traceIdString);
-	                        			
-	                        } finally {
-//	                        	ThreadContext.remove("traceId");
-	                        }
 	                    });
 			})
 		;

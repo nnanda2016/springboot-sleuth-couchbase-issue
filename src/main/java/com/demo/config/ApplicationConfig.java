@@ -45,6 +45,11 @@ public class ApplicationConfig {
 	@Autowired
 	private CouchbaseConfigProps couchbaseConfigs;
 	
+//	@Bean
+//	CurrentTraceContext sleuthCurrentTraceContext() {
+//		return DemoThreadContextCurrentTraceContext.create();
+//	}
+	
 	@Bean(name = BeanNames.JACKSON_OBJECT_MAPPER)
     @Scope(ConfigurableBeanFactory.SCOPE_SINGLETON)
     public ObjectMapper getObjectMapper() {

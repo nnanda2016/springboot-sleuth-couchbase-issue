@@ -44,24 +44,47 @@ public class GetByIdHandler {
 	public Mono<ServerResponse> handle(final ServerRequest request) {
 		return Mono.subscriberContext()
 			.flatMap(context -> {
+				
 				final String txPath = CLASS_NAME + "#handle";
 				
-				final Span span = (Span) context.getOrEmpty(Span.class).orElse(null);
-				logger.info("[Span: {}][TxPath: {}]", span, txPath);
+				logger.info("[Span: {}][TxPath: {}][Tracer.span: {}]", context.getOrEmpty(Span.class).orElse(null), txPath, tracer.currentSpan());
 				
-				final ResourceDetail resourceDetail = (ResourceDetail) request.attribute("RESOURCE_DETAIL")
-		                .orElseThrow(() -> new AppException("APP_400003", "Resource ID and name cannot be determined from request path '" + request.path() + "'."));
+				final Span newSpan = this.tracer.nextSpan().name("GetByIdHandler#handle");
+				try (final Tracer.SpanInScope ws = this.tracer.withSpanInScope(newSpan.start())) {
+					final ResourceDetail resourceDetail = (ResourceDetail) request.attribute("RESOURCE_DETAIL")
+			                .orElseThrow(() -> new AppException("APP_400003", "Resource ID and name cannot be determined from request path '" + request.path() + "'."));
+					
+					final String resourceName = resourceDetail.getResourceName();
+			        final String id = resourceDetail.getResourceId();
+					
+			        return resourceService.get(resourceDetail)
+			        		// These logging are just for correlation purpose 
+							.doOnSuccess(jsonNode -> logger.info("[Span: {}][TxPath: {}#doOnSuccess][Tracer.span: {}] Successfully fetched resource with id '{}' and name '{}'.", context.getOrEmpty(Span.class).orElse(null), txPath, tracer.currentSpan(), id, resourceName))
+							.doOnError(t -> logger.info("[Span: {}][TxPath: {}#doOnError][Tracer.span: {}] Failed to fetch resource with id '{}' and name '{}'...", context.getOrEmpty(Span.class).orElse(null), txPath, tracer.currentSpan(), id, resourceName, t))
+			        		.flatMap(jsonNode -> ServerResponse.ok()
+			        			.contentType(MediaType.APPLICATION_JSON_UTF8)
+			        			.syncBody(jsonNode));
 				
-				final String resourceName = resourceDetail.getResourceName();
-		        final String id = resourceDetail.getResourceId();
+				} finally {
+					newSpan.finish();
+				}
 				
-		        return resourceService.get(resourceDetail)
-		        		// These logging are just for correlation purpose 
-						.doOnSuccess(jsonNode -> logger.info("[Span: {}][TxPath: {}#doOnSuccess] Successfully fetched resource with id '{}' and name '{}'.", context.getOrEmpty(Span.class).orElse(null), txPath, id, resourceName))
-						.doOnError(t -> logger.info("[Span: {}][TxPath: {}#doOnError] Failed to fetch resource with id '{}' and name '{}'...", context.getOrEmpty(Span.class).orElse(null), txPath, id, resourceName, t))
-		        		.flatMap(jsonNode -> ServerResponse.ok()
-		        			.contentType(MediaType.APPLICATION_JSON_UTF8)
-		        			.syncBody(jsonNode));
+//				final Span span = (Span) context.getOrEmpty(Span.class).orElse(null);
+//				logger.info("[Span: {}][TxPath: {}]", span, txPath);
+//				
+//				final ResourceDetail resourceDetail = (ResourceDetail) request.attribute("RESOURCE_DETAIL")
+//		                .orElseThrow(() -> new AppException("APP_400003", "Resource ID and name cannot be determined from request path '" + request.path() + "'."));
+//				
+//				final String resourceName = resourceDetail.getResourceName();
+//		        final String id = resourceDetail.getResourceId();
+//				
+//		        return resourceService.get(resourceDetail)
+//		        		// These logging are just for correlation purpose 
+//						.doOnSuccess(jsonNode -> logger.info("[Span: {}][TxPath: {}#doOnSuccess] Successfully fetched resource with id '{}' and name '{}'.", context.getOrEmpty(Span.class).orElse(null), txPath, id, resourceName))
+//						.doOnError(t -> logger.info("[Span: {}][TxPath: {}#doOnError] Failed to fetch resource with id '{}' and name '{}'...", context.getOrEmpty(Span.class).orElse(null), txPath, id, resourceName, t))
+//		        		.flatMap(jsonNode -> ServerResponse.ok()
+//		        			.contentType(MediaType.APPLICATION_JSON_UTF8)
+//		        			.syncBody(jsonNode));
 			})
 		;
 		

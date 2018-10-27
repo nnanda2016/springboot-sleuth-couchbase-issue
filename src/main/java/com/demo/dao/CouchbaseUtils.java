@@ -84,25 +84,29 @@ public class CouchbaseUtils {
 			.flatMap(context -> {
 				final String txPath = CLASS_NAME + "#fetchByKey";
 				
-				final Span span = (Span) context.getOrEmpty(Span.class).orElse(null);
-				logger.info("[Span: {}][TxPath: {}]", span, txPath);
+				logger.info("[Span: {}][TxPath: {}][Tracer.span: {}]", context.getOrEmpty(Span.class).orElse(null), txPath, tracer.currentSpan());
 				
 				@SuppressWarnings("unchecked")
 				final Observable<JsonDocument> fetchedJsonDocObservable = bucket.async().get(docKey)
 						.retryWhen(RetryBuilder.anyOf(RequestCancelledException.class, TemporaryFailureException.class)
 								.max(this.retryTuple.getT1())
 								.delay(Delay.exponential(TimeUnit.MILLISECONDS, this.retryTuple.getT2(), 0, 1))
-								.doOnRetry((count, error, delay, timeUnit) -> logger.error("[Span: {}][TxPath: {}] An error occurred while fetching the document. [Document key={}][Retry iteration: {}][Time with delay: {}]...", context.getOrEmpty(Span.class).orElse(null), txPath, docKey, count, delay, error))
+								.doOnRetry((count, error, delay, timeUnit) -> logger.error("[Span: {}][TxPath: {}][Tracer.span: {}] An error occurred while fetching the document. [Document key={}][Retry iteration: {}][Time with delay: {}]...", context.getOrEmpty(Span.class).orElse(null), txPath, tracer.currentSpan(), docKey, count, delay, error))
 								.build()
 							)
-					.doOnError(t -> logger.error("[Span: {}][TxPath: {}] Exception while fetching document with key '{}'.", context.getOrEmpty(Span.class).orElse(null), txPath, docKey))
+					.doOnError(t -> logger.error("[Span: {}][TxPath: {}][Tracer.span: {}] Exception while fetching document with key '{}'.", context.getOrEmpty(Span.class).orElse(null), txPath, tracer.currentSpan(), docKey))
 					.onErrorReturn(e -> null)
 				;
 				
-				return Mono.from(RxReactiveStreams.toPublisher(fetchedJsonDocObservable))
-						.publishOn(this.appWorkerScheduler)
-						.doOnError(t -> logger.info("[Span: {}][TxPath: {}#doOnError] Exception: ", context.getOrEmpty(Span.class).orElse(null), txPath, t))
-						.doOnSuccess(jsonDoc -> logger.info("[Span: {}][TxPath: {}#doOnSuccess]", context.getOrEmpty(Span.class).orElse(null), txPath));
+				final Span newSpan = this.tracer.nextSpan().name("CouchbaseUtils#fetchByKey");
+				try (final Tracer.SpanInScope ws = this.tracer.withSpanInScope(newSpan.start())) {
+					return Mono.from(RxReactiveStreams.toPublisher(fetchedJsonDocObservable))
+							.publishOn(this.appWorkerScheduler)
+							.doOnError(t -> logger.info("[Span: {}][TxPath: {}#doOnError][Tracer.span: {}] Exception: ", context.getOrEmpty(Span.class).orElse(null), txPath, tracer.currentSpan(), t))
+							.doOnSuccess(jsonDoc -> logger.info("[Span: {}][TxPath: {}#doOnSuccess][Tracer.span: {}]", context.getOrEmpty(Span.class).orElse(null), txPath, tracer.currentSpan()));
+				} finally {
+					newSpan.finish();
+				}
 			})
 		;
 		
@@ -245,38 +249,33 @@ public class CouchbaseUtils {
 			return null;
 		}
 		
-		final Span newSpan = this.tracer.nextSpan().name("CouchbaseUtils#jsonDocToJsonNode");
-		try (final Tracer.SpanInScope ws = this.tracer.withSpanInScope(newSpan.start())) {
-			final String txPath = CLASS_NAME + "#jsonDocToJsonNode";
-	        
-	        final JsonObject content = jsonDoc.content();
-	        JsonObject meta = content.getObject("_meta");
+		final String txPath = CLASS_NAME + "#jsonDocToJsonNode";
+        
+        final JsonObject content = jsonDoc.content();
+        JsonObject meta = content.getObject("_meta");
 
-	        if (meta == null) {
-	            meta = JsonObject.create();
-	            content.put("_meta", meta);
-	        }
-	        
-	        // Set the cas to the revision in 'meta'
-	        meta.put("revision", Objects.toString(jsonDoc.cas()));
-	        
-	        final String stringContent = Objects.toString(content);
-	        
-	        try {
-	            final JsonNode jsonNode = jacksonObjectMapper.readTree(stringContent);
+        if (meta == null) {
+            meta = JsonObject.create();
+            content.put("_meta", meta);
+        }
+        
+        // Set the cas to the revision in 'meta'
+        meta.put("revision", Objects.toString(jsonDoc.cas()));
+        
+        final String stringContent = Objects.toString(content);
+        
+        try {
+            final JsonNode jsonNode = jacksonObjectMapper.readTree(stringContent);
 
-	            logger.debug("[TxPath: {}] Successfully converted Couchbase JsonDocument to JsonNode", txPath);
+            logger.debug("[TxPath: {}] Successfully converted Couchbase JsonDocument to JsonNode", txPath);
 
-	            return jsonNode;
-	        } catch (final Exception e) {
-	            logger.debug("Exception when reading Couchbase JsonDocument: '{}' as JsonNode", jsonDoc);
-	            logger.error("Exception when reading Couchbase JsonDocument as JsonNode, document key: '{}'", jsonDoc.id(), e);
+            return jsonNode;
+        } catch (final Exception e) {
+            logger.debug("Exception when reading Couchbase JsonDocument: '{}' as JsonNode", jsonDoc);
+            logger.error("Exception when reading Couchbase JsonDocument as JsonNode, document key: '{}'", jsonDoc.id(), e);
 
-	            throw new RuntimeException(e);
-	        }
-		} finally {
-			newSpan.finish();
-		}
+            throw new RuntimeException(e);
+        }
 	}
 	
 //	@NewSpan(name = "CouchbaseUtils#jsonNodeToJsonDocument")

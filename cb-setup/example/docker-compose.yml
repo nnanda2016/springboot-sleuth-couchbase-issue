@@ -1,0 +1,11 @@
+version: '2'
+
+services:
+  couchbase:
+    image: btburnett3/couchbasefakeit:enterprise-5.5.0
+    volumes:
+      - "./:/startup"
+    ports:
+      - "8091-8094:8091-8094"
+      - "11207:11027"
+      - "11210-11211:11210-11211"

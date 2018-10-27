@@ -3,16 +3,18 @@ spring:
     active: local
 
 ---
- 
+
 spring:
   profiles: local
   application:
     name: Sleuth Demo App
   
   sleuth:
+    enabled: true
     #opentracing:
       #enabled: false
     web:
+      #enabled: false
       client:
         enabled: false
     rxjava:
@@ -29,6 +31,9 @@ server:
   
 # Actuator endpoint management
 management:
+  trace:
+    http:
+      enabled: false
   endpoints:
     web:
       base-path: /manage
@@ -39,6 +44,7 @@ management:
       enabled: true
       
 app:
+  enableTrace: true
   workerThreadPoolSize: 32
   couchbase:
     hosts:
@@ -48,6 +54,6 @@ app:
     queryTimeoutInSecs: 30
     maxRetryAttempt: 3
     sslEnabled: false
-    bucketName: DEMO1
-    bucketUserName: bucket-admin
-    bucketUserPassword: demo@123
+    bucketName: sample
+    bucketUserName: Administrator
+    bucketUserPassword: password

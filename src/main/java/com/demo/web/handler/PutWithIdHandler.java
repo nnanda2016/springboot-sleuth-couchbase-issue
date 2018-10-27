@@ -19,7 +19,6 @@ import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
 import org.springframework.web.reactive.function.server.ServerResponse.BodyBuilder;
 
-import brave.Span;
 import brave.Tracer;
 import reactor.core.publisher.Mono;
 
@@ -45,8 +44,11 @@ public class PutWithIdHandler {
 
 //	@NewSpan("PutWithIdHandler#handle")
 	public Mono<ServerResponse> handle(final ServerRequest request) {
-		final Span newSpan = this.tracer.nextSpan().name("PutWithIdHandler#handle");
-		try (final Tracer.SpanInScope ws = this.tracer.withSpanInScope(newSpan.start())) {
+		
+		
+		
+//		final Span newSpan = this.tracer.nextSpan().name("PutWithIdHandler#handle");
+//		try (final Tracer.SpanInScope ws = this.tracer.withSpanInScope(newSpan.start())) {
 			final ResourceDetail resourceDetail = (ResourceDetail) request.attribute("RESOURCE_DETAIL")
 	                .orElseThrow(() -> new AppException("APP_400003", "Resource ID and name cannot be determined from request path '" + request.path() + "'."));
 
@@ -89,8 +91,8 @@ public class PutWithIdHandler {
 
 						return builder.build();
 					});
-		} finally {
-			newSpan.finish();
-		}
+//		} finally {
+//			newSpan.finish();
+//		}
 	}
 }

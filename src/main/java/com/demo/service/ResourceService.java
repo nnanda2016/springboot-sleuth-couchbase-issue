@@ -48,25 +48,24 @@ public class ResourceService {
 			.flatMap(context -> {
 				final String txPath = CLASS_NAME + "#get";
 				
-				final Span span = (Span) context.getOrEmpty(Span.class).orElse(null);
-				logger.info("[TxPath: {}][Span: {}]", txPath, span);
+				logger.info("[Span: {}][TxPath: {}][Tracer.span: {}]", context.getOrEmpty(Span.class).orElse(null), txPath, tracer.currentSpan());
 				
-				return resourceDAO.fetch(resourceDetail)
-						// README: Change Mono.defer() and verify
-	            		.switchIfEmpty(Mono.defer(() -> {
-	            				logger.error("[Span: {}][TxPath: {}#switchIfEmpty] No data was fetched from persistence store for the given id '{}' and resource name '{}'.", context.getOrEmpty(Span.class).orElse(null), txPath, resourceDetail.getResourceId(), resourceDetail.getResourceName());
-
-	                            return Mono.error(new AppException("APP_404002", "No data was fetched from persistence store for the given id '" + resourceDetail.getResourceId() + " and resource name '" + resourceDetail.getResourceName() + "'."));
-	            			})
-	            		)
-	            		.doOnSuccess(jsonNode -> {
-	    	            	// Remove all fields except 'revision' from _meta node.
-	    	            	serviceHelper.updateMetaNodeForResponse(jsonNode);
-	    	            	
-	    	            	// This logging is just for correlation
-	    	            	logger.info("[Span: {}][TxPath: {}#doOnSuccess] Successfully fetched resource from persistence store for the given id '{}' and resource name '{}'.", context.getOrEmpty(Span.class).orElse(null), txPath, resourceDetail.getResourceId(), resourceDetail.getResourceName());
-	    	            })
-	            		.doOnError(t -> logger.error("[Span: {}][TxPath: {}#doOnError] Failed to fetch resource from persistence store for the given id '{}' and resource name '{}'.", context.getOrEmpty(Span.class).orElse(null), txPath, resourceDetail.getResourceId(), resourceDetail.getResourceName()));
+				final Span newSpan = this.tracer.nextSpan().name("ResourceService#get");
+				try (final Tracer.SpanInScope ws = this.tracer.withSpanInScope(newSpan.start())) {
+					return resourceDAO.fetch(resourceDetail)
+							// README: Change Mono.defer() and verify
+		            		.switchIfEmpty(Mono.error(new AppException("APP_404002", "No data was fetched from persistence store for the given id '" + resourceDetail.getResourceId() + " and resource name '" + resourceDetail.getResourceName() + "'.")))
+		            		.doOnSuccess(jsonNode -> {
+		    	            	// Remove all fields except 'revision' from _meta node.
+		    	            	serviceHelper.updateMetaNodeForResponse(jsonNode);
+		    	            	
+		    	            	// This logging is just for correlation
+		    	            	logger.info("[Span: {}][TxPath: {}#doOnSuccess][Tracer.span: {}] Successfully fetched resource from persistence store for the given id '{}' and resource name '{}'.", context.getOrEmpty(Span.class).orElse(null), txPath, tracer.currentSpan(), resourceDetail.getResourceId(), resourceDetail.getResourceName());
+		    	            })
+		            		.doOnError(t -> logger.error("[Span: {}][TxPath: {}#doOnError][Tracer.span: {}] Failed to fetch resource from persistence store for the given id '{}' and resource name '{}'.", context.getOrEmpty(Span.class).orElse(null), txPath, tracer.currentSpan(), resourceDetail.getResourceId(), resourceDetail.getResourceName()));
+				} finally {
+					newSpan.finish();
+				}
 			})
 		;
 		

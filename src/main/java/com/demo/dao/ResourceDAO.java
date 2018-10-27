@@ -53,22 +53,26 @@ public class ResourceDAO {
 			.flatMap(context -> {
 				final String txPath = CLASS_NAME + "#fetch";
 				
-				final Span span = (Span) context.getOrEmpty(Span.class).orElse(null);
-				logger.info("[Span: {}][TxPath: {}]", span, txPath);
+				logger.info("[Span: {}][TxPath: {}][Tracer.span: {}]", context.getOrEmpty(Span.class).orElse(null), txPath, tracer.currentSpan());
 				
-				final String documentKey = Utils.FN_DOCUMENT_KEY_SUPPLIER.apply(resourceDetail.getResourceName(), resourceDetail.getResourceId());
-				return couchbaseUtils.fetchByKey(dataBucket, documentKey)
-						.map(this.couchbaseUtils::jsonDocToJsonNode)
-						// These logging are just for correlation purpose 
-						.doOnSuccess(jsonNode ->  {
-							if (jsonNode == null) {
-								logger.error("[Span: {}][TxPath: {}#doOnSuccess] Failed to fetch document for resource '{}'.", context.getOrEmpty(Span.class).orElse(null), txPath, resourceDetail);
-							} else {
-								logger.info("[Span: {}][TxPath: {}#doOnSuccess] Successfully fetched document for resource '{}'", context.getOrEmpty(Span.class).orElse(null), txPath, resourceDetail);
-							}
-						})
-						.doOnError(t -> logger.error("[Span: {}][TxPath: {}#doOnError] Failed to fetch document for resource '{}'...", context.getOrEmpty(Span.class).orElse(null), txPath, resourceDetail, t))
-						;
+				final Span newSpan = this.tracer.nextSpan().name("ResourceDAO#fetch");
+				try (final Tracer.SpanInScope ws = this.tracer.withSpanInScope(newSpan.start())) {
+					final String documentKey = Utils.FN_DOCUMENT_KEY_SUPPLIER.apply(resourceDetail.getResourceName(), resourceDetail.getResourceId());
+					return couchbaseUtils.fetchByKey(dataBucket, documentKey)
+							.map(this.couchbaseUtils::jsonDocToJsonNode)
+							// These logging are just for correlation purpose 
+							.doOnSuccess(jsonNode ->  {
+								if (jsonNode == null) {
+									logger.error("[Span: {}][TxPath: {}#doOnSuccess][Tracer.span: {}] Failed to fetch document for resource '{}'.", context.getOrEmpty(Span.class).orElse(null), txPath, tracer.currentSpan(), resourceDetail);
+								} else {
+									logger.info("[Span: {}][TxPath: {}#doOnSuccess][Tracer.span: {}] Successfully fetched document for resource '{}'", context.getOrEmpty(Span.class).orElse(null), txPath, tracer.currentSpan(), resourceDetail);
+								}
+							})
+							.doOnError(t -> logger.error("[Span: {}][TxPath: {}#doOnError][Tracer.span: {}] Failed to fetch document for resource '{}'...", context.getOrEmpty(Span.class).orElse(null), txPath, tracer.currentSpan(), resourceDetail, t))
+							;
+				} finally {
+					newSpan.finish();
+				}
 			})
 		;
 		
