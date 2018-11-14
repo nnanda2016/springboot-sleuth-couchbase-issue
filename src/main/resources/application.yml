@@ -43,17 +43,3 @@ management:
     shutdown:
       enabled: true
       
-app:
-  enableTrace: true
-  workerThreadPoolSize: 32
-  couchbase:
-    hosts:
-      - localhost
-    connectionTimeoutInSecs: 30
-    keyValueTimeoutInSecs: 30
-    queryTimeoutInSecs: 30
-    maxRetryAttempt: 3
-    sslEnabled: false
-    bucketName: sample
-    bucketUserName: Administrator
-    bucketUserPassword: password
